@@ -1,0 +1,304 @@
+import { CalendarCheck, Clock, Download, Filter, Headphones, XCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import { FIXTURE_APPOINTMENTS, type Appointment } from '../fixtures/data';
+
+// ── Status badge ──────────────────────────────────────────────────────────────
+function StatusBadge({ status }: { status: Appointment['status'] }) {
+  const map: Record<string, { color: string; bg: string; border?: string }> = {
+    CONFIRMED: { color: 'var(--accent)',      bg: 'var(--accent-dim)',      border: 'var(--accent-border)' },
+    CANCELLED: { color: 'var(--destructive)', bg: 'var(--destructive-dim)' },
+    PENDING:   { color: 'var(--warning)',     bg: 'var(--warning-dim)' },
+  };
+  const s = map[status] ?? map.PENDING;
+  return (
+    <span style={{
+      display: 'inline-block',
+      padding: '2px 10px',
+      borderRadius: '9999px',
+      fontSize: '11px',
+      fontWeight: 600,
+      color: s.color,
+      backgroundColor: s.bg,
+      border: s.border ? `1px solid ${s.border}` : undefined,
+    }}>
+      {status}
+    </span>
+  );
+}
+
+// ── Voice badge ───────────────────────────────────────────────────────────────────────
+function AIBadge() {
+  return (
+    <span className="flex items-center gap-1.5" style={{
+      display: 'inline-flex',
+      padding: '2px 8px',
+      borderRadius: '9999px',
+      fontSize: '11px',
+      fontWeight: 600,
+      color: 'var(--accent)',
+      backgroundColor: 'var(--accent-dim)',
+      border: '1px solid var(--accent-border)',
+      whiteSpace: 'nowrap',
+    }}>
+      <Headphones size={11} />
+      Voice
+    </span>
+  );
+}
+
+// ── Stat card ─────────────────────────────────────────────────────────────────
+function StatCard({ label, value, icon: Icon, color }: {
+  label: string; value: number; icon: React.ElementType; color?: string;
+}) {
+  return (
+    <div
+      className="rounded-xl p-5 transition-all"
+      style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-card)' }}
+      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-strong)'; }}
+      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}
+    >
+      <div className="flex items-start justify-between mb-3">
+        <p style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)', fontWeight: 500 }}>
+          {label}
+        </p>
+        <Icon size={16} style={{ color: color ?? 'var(--text-muted)' }} />
+      </div>
+      <p style={{ fontSize: '32px', fontWeight: 600, color: color ?? 'var(--text-primary)', letterSpacing: '-0.02em', lineHeight: 1 }}>
+        {value}
+      </p>
+    </div>
+  );
+}
+
+// ── Appointments Page ─────────────────────────────────────────────────────────
+export default function Appointments() {
+  const [appointments, setAppointments] = useState<Appointment[]>(FIXTURE_APPOINTMENTS);
+  const [filterStatus, setFilterStatus] = useState<string>('ALL');
+  const [filterSpec, setFilterSpec]     = useState<string>('ALL');
+
+  const specs = Array.from(new Set(FIXTURE_APPOINTMENTS.map(a => a.specialization)));
+
+  const filtered = appointments.filter(a =>
+    (filterStatus === 'ALL' || a.status === filterStatus) &&
+    (filterSpec   === 'ALL' || a.specialization === filterSpec)
+  );
+
+  const stats = {
+    total:    appointments.length,
+    confirmed: appointments.filter(a => a.status === 'CONFIRMED').length,
+    cancelled: appointments.filter(a => a.status === 'CANCELLED').length,
+    pending:   appointments.filter(a => a.status === 'PENDING').length,
+  };
+
+  // CSV export (client-side, no API needed)
+  const handleExport = () => {
+    const headers = ['ID', 'Patient Phone', 'Doctor', 'Specialization', 'Slot Time', 'Booked Via', 'Status'];
+    const rows = appointments.map(a =>
+      [a.id, a.patient_phone, a.doctor, a.specialization, a.slot_time, a.booked_via, a.status].join(',')
+    );
+    const csv = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'appointments.csv';
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Cancel an appointment
+  const handleCancel = (id: string) => {
+    setAppointments(prev =>
+      prev.map(a => a.id === id ? { ...a, status: 'CANCELLED' as const } : a)
+    );
+  };
+
+  const selectStyle: React.CSSProperties = {
+    padding: '7px 12px',
+    borderRadius: '8px',
+    fontSize: '13px',
+    backgroundColor: 'var(--bg-surface)',
+    border: '1px solid var(--border)',
+    color: 'var(--text-secondary)',
+    outline: 'none',
+    cursor: 'pointer',
+  };
+
+  return (
+    <div data-testid="appointments-page" className="h-full flex flex-col">
+      {/* Top bar */}
+      <div
+        className="px-8 py-5 flex items-center justify-between flex-shrink-0"
+        style={{ borderBottom: '1px solid var(--border)', backgroundColor: 'var(--bg-surface)' }}
+      >
+        <div>
+          <h1 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--text-primary)', letterSpacing: '-0.01em', margin: 0 }}>
+            Appointments
+          </h1>
+          <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '2px' }}>
+            Bookings made by the receptionist
+          </p>
+        </div>
+        <button
+          onClick={handleExport}
+          className="flex items-center gap-2"
+          style={{
+            padding: '8px 16px',
+            borderRadius: '8px',
+            fontSize: '13px',
+            fontWeight: 500,
+            color: 'var(--text-secondary)',
+            backgroundColor: 'transparent',
+            border: '1px solid var(--border)',
+            cursor: 'pointer',
+            transition: 'border-color 0.15s',
+          }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-strong)'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}
+        >
+          <Download size={14} />
+          Export CSV
+        </button>
+      </div>
+
+      <div className="flex-1 flex flex-col overflow-hidden" style={{ backgroundColor: 'var(--bg-page)' }}>
+        {/* Stats row */}
+        <div className="px-8 pt-6 pb-4 grid grid-cols-4 gap-4 flex-shrink-0">
+          <StatCard label="Total Today"  value={stats.total}     icon={CalendarCheck} />
+          <StatCard label="Confirmed"    value={stats.confirmed} icon={CalendarCheck} color="var(--accent)" />
+          <StatCard label="Cancelled"    value={stats.cancelled} icon={XCircle}       color="var(--destructive)" />
+          <StatCard label="Pending"      value={stats.pending}   icon={Clock}         color="var(--warning)" />
+        </div>
+
+        {/* Filter row */}
+        <div
+          className="px-8 py-3 flex items-center gap-3 flex-shrink-0"
+          style={{ borderBottom: '1px solid var(--border)', backgroundColor: 'var(--bg-surface)' }}
+        >
+          <Filter size={14} style={{ color: 'var(--text-muted)' }} />
+          <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 500 }}>Filter:</span>
+
+          <select value={filterSpec} onChange={e => setFilterSpec(e.target.value)} style={selectStyle}>
+            <option value="ALL">All Specializations</option>
+            {specs.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+
+          <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={selectStyle}>
+            <option value="ALL">All Statuses</option>
+            <option value="CONFIRMED">Confirmed</option>
+            <option value="CANCELLED">Cancelled</option>
+            <option value="PENDING">Pending</option>
+          </select>
+
+          {(filterStatus !== 'ALL' || filterSpec !== 'ALL') && (
+            <button
+              onClick={() => { setFilterStatus('ALL'); setFilterSpec('ALL'); }}
+              style={{ fontSize: '12px', color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer' }}
+            >
+              Clear filters
+            </button>
+          )}
+
+          <span style={{ marginLeft: 'auto', fontSize: '12px', color: 'var(--text-muted)' }}>
+            {filtered.length} result{filtered.length !== 1 ? 's' : ''}
+          </span>
+        </div>
+
+        {/* Table */}
+        <div className="flex-1 overflow-y-auto px-8 py-4">
+          <div
+            className="rounded-xl overflow-hidden"
+            style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-card)' }}
+          >
+            {filtered.length === 0 ? (
+              <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+                <div
+                  className="w-12 h-12 rounded-full flex items-center justify-center"
+                  style={{ backgroundColor: 'var(--bg-surface-2)' }}
+                >
+                  <CalendarCheck size={22} style={{ color: 'var(--text-muted)' }} />
+                </div>
+                <p style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-secondary)' }}>No appointments match your filters</p>
+                <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Try clearing the filters above.</p>
+              </div>
+            ) : (
+              <table className="w-full" style={{ borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ backgroundColor: 'var(--bg-surface-2)' }}>
+                    {['Time', 'Patient', 'Doctor', 'Specialization', 'Booked Via', 'Status', 'Actions'].map(h => (
+                      <th
+                        key={h}
+                        className="px-5 py-3 text-left"
+                        style={{
+                          fontSize: '11px',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.06em',
+                          color: 'var(--text-muted)',
+                          borderBottom: '1px solid var(--border)',
+                          fontWeight: 500,
+                        }}
+                      >
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((apt, i) => (
+                    <tr
+                      key={apt.id}
+                      data-testid={`apt-row-${apt.id}`}
+                      style={{ borderBottom: i < filtered.length - 1 ? '1px solid var(--border)' : 'none' }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--bg-surface-2)'; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; }}
+                    >
+                      <td className="px-5 py-3.5" style={{ fontSize: '13px', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+                        {apt.slot_time}
+                      </td>
+                      <td className="px-5 py-3.5" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: 'var(--text-primary)' }}>
+                        {apt.patient_phone}
+                      </td>
+                      <td className="px-5 py-3.5" style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-primary)' }}>
+                        {apt.doctor}
+                      </td>
+                      <td className="px-5 py-3.5" style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                        {apt.specialization}
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <AIBadge />
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <StatusBadge status={apt.status} />
+                      </td>
+                      <td className="px-5 py-3.5">
+                        {apt.status === 'CONFIRMED' && (
+                          <button
+                            onClick={() => handleCancel(apt.id)}
+                            style={{
+                              fontSize: '12px',
+                              fontWeight: 500,
+                              color: 'var(--destructive)',
+                              background: 'none',
+                              border: 'none',
+                              cursor: 'pointer',
+                              padding: '4px 8px',
+                              borderRadius: '6px',
+                            }}
+                            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--destructive-dim)'; }}
+                            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; }}
+                          >
+                            Cancel
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

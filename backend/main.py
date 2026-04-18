@@ -1,0 +1,200 @@
+import logging
+from contextlib import asynccontextmanager
+from collections.abc import AsyncGenerator
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+from fastapi.responses import Response, FileResponse
+import os as _os
+
+from backend.config import settings
+from backend.db import init_db
+
+# ── Logging ────────────────────────────────────────────────────────────────────
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
+)
+logger = logging.getLogger(__name__)
+
+# Filter to suppress noisy requests from other apps (LeadScout etc.)
+class _IgnoreNoiseFilter(logging.Filter):
+    """Drop log records from unrelated apps hitting this server."""
+    _blocked = ("/api/leads", "/api/dashboard", "/api/scrape", "/api/countries",
+                "/api/directories", "/api/categories", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9",
+                "connection rejected", "connection closed")
+    def filter(self, record: logging.LogRecord) -> bool:
+        msg = record.getMessage()
+        return not any(b in msg for b in self._blocked)
+
+# Silence noisy 3rd-party loggers
+for _noisy in ("httpx", "httpcore", "watchfiles", "hpack", "sqlalchemy.engine"):
+    logging.getLogger(_noisy).setLevel(logging.WARNING)
+
+# Apply filter to ALL uvicorn loggers and root logger
+_nf = _IgnoreNoiseFilter()
+for _uv in ("uvicorn.access", "uvicorn.error", "uvicorn", ""):
+    logging.getLogger(_uv).addFilter(_nf)
+
+# ── Lifespan (startup / shutdown) ──────────────────────────────────────────────
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    logger.info("Lifodial starting up — environment: %s", settings.environment)
+    
+    # Initialize DB — runs safe schema migrations automatically
+    await init_db()
+    print("[OK] Session store ready (in-memory)")
+
+    # Sync .env API keys into the database so they show in AI Platform
+    try:
+        from backend.routers.platform import sync_keys_from_env
+        from backend.db import AsyncSessionLocal
+        async with AsyncSessionLocal() as db:
+            synced = await sync_keys_from_env(db)
+            if synced:
+                print(f"[OK] Synced {synced} API key(s) from .env into AI Platform")
+    except Exception as e:
+        logger.warning("Env key sync failed (non-fatal): %s", e)
+
+    yield
+    logger.info("Lifodial shut down cleanly")
+
+# ── App ────────────────────────────────────────────────────────────────────────
+app = FastAPI(
+    title="Lifodial API",
+    description="AI Voice Receptionist SaaS for clinics — India & Middle East (Lifodial)",
+    version="1.0.0",
+    docs_url="/docs" if settings.environment != "production" else None,
+    redoc_url="/redoc" if settings.environment != "production" else None,
+    lifespan=lifespan,
+)
+
+# ── CORS ───────────────────────────────────────────────────────────────────────
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ── Block noise from other projects (LeadScout etc.) ──────────────────────────
+_FOREIGN_PATHS = ("/api/leads", "/api/dashboard", "/api/scrape", "/api/countries",
+                  "/api/directories", "/api/categories")
+
+@app.middleware("http")
+async def block_foreign_requests(request: Request, call_next):
+    """Return silent 404 for requests from other projects hitting this port."""
+    if any(request.url.path.startswith(p) for p in _FOREIGN_PATHS):
+        return Response(status_code=404)
+    return await call_next(request)
+
+# ── Core routes ────────────────────────────────────────────────────────────────
+@app.get("/health", tags=["meta"])
+async def health() -> dict:
+    """Health check — returns database connection status."""
+    from backend.db import AsyncSessionLocal, IS_SQLITE
+    db_status = "unknown"
+    db_type = "postgresql" if not IS_SQLITE else "sqlite"
+
+    try:
+        from sqlalchemy import text
+        async with AsyncSessionLocal() as session:
+            await session.execute(text("SELECT 1"))
+            db_status = "connected"
+    except Exception as e:
+        db_status = f"error: {str(e)[:50]}"
+
+    return {
+        "status": "ok" if db_status == "connected" else "degraded",
+        "database": db_status,
+        "database_type": db_type,
+        "version": "1.0.0",
+        "environment": settings.environment,
+    }
+
+@app.get("/", tags=["meta"])
+async def root() -> dict[str, str]:
+    return {"service": "Lifodial API", "docs": "/docs"}
+
+# ── Routers ───────────────────────────────────────────────────────────────────
+from backend.routers import admin, tenants, doctors, voice, appointments, ws, voice_upload, agents, agent_test, platform, knowledge_base, voices, web_calls, phone_numbers, embed
+
+app.include_router(admin.router,          prefix="/admin",    tags=["superadmin"])
+app.include_router(voice.router,          prefix="/voice",    tags=["voice"])
+app.include_router(voices.router,         prefix="/voices",   tags=["voice-library"])
+app.include_router(tenants.router,        prefix="/tenants",  tags=["tenants"])
+app.include_router(doctors.router,        prefix="",          tags=["doctors"])
+app.include_router(appointments.router,   prefix="/tenants",  tags=["appointments"])
+app.include_router(voice_upload.router,   prefix="/tenants",  tags=["voice"])
+app.include_router(ws.router,             prefix="",          tags=["websocket"])
+app.include_router(agents.router,         prefix="",          tags=["agents"])
+app.include_router(agent_test.router,     prefix="",          tags=["agent-test"])
+app.include_router(platform.router,       prefix="",          tags=["platform"])
+app.include_router(knowledge_base.router, prefix="",          tags=["knowledge-base"])
+app.include_router(web_calls.router,      prefix="",          tags=["web-calls"])
+app.include_router(phone_numbers.router,  prefix="",          tags=["phone-numbers"])
+app.include_router(embed.router,          prefix="",          tags=["embed"])
+
+
+# ── Serve widget.js publicly ────────────────────────────────────────────────────
+@app.get("/widget.js", tags=["embed"])
+async def serve_widget():
+    """Public widget script served with CORS + cache headers."""
+    widget_paths = [
+        _os.path.join("backend", "static", "widget.js"),
+        _os.path.join("static", "widget.js"),
+        _os.path.join("frontend", "public", "widget.js"),
+    ]
+    for path in widget_paths:
+        if _os.path.isfile(path):
+            return FileResponse(
+                path,
+                media_type="application/javascript",
+                headers={
+                    "Cache-Control": "public, max-age=3600",
+                    "Access-Control-Allow-Origin": "*",
+                },
+            )
+    from fastapi.responses import PlainTextResponse
+    return PlainTextResponse("// widget.js not found", status_code=404, media_type="application/javascript")
+
+
+# ── Catch-all WebSocket handlers ───────────────────────────────────────────────
+# Silently accept unknown WebSocket connections (e.g. LeadScout on same port)
+from fastapi import WebSocket as _WS, WebSocketDisconnect as _WSD
+
+@app.websocket("/ws/{path:path}")
+async def catch_all_ws(websocket: _WS, path: str):
+    await websocket.accept()
+    try:
+        while True:
+            await websocket.receive()
+    except (_WSD, Exception):
+        pass
+
+# Also catch bare /ws without trailing path
+@app.websocket("/ws")
+async def catch_bare_ws(websocket: _WS):
+    await websocket.accept()
+    try:
+        while True:
+            await websocket.receive()
+    except (_WSD, Exception):
+        pass
+
+# Catch ANY other WebSocket path (e.g. /<jwt-token> without /ws prefix)
+@app.websocket("/{path:path}")
+async def catch_any_ws(websocket: _WS, path: str):
+    # Only accept if it looks like a foreign WebSocket (JWT, etc.)
+    if path.startswith("eyJ") or len(path) > 100:
+        await websocket.accept()
+        try:
+            while True:
+                await websocket.receive()
+        except (_WSD, Exception):
+            pass
+    else:
+        await websocket.close(code=1008)

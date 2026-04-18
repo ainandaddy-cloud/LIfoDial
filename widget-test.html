@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Lifodial Widget Test Page — Apollo Mumbai</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #f0faf6 0%, #e8f4fd 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    /* Fake clinic website */
+    nav {
+      background: #fff;
+      border-bottom: 1px solid #e5e7eb;
+      padding: 16px 40px;
+      display: flex;
+      align-items: center;
+      gap: 24px;
+    }
+    nav .logo { font-size: 22px; font-weight: 800; color: #0f5fa8; }
+    nav a { color: #444; text-decoration: none; font-size: 14px; }
+    .hero {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 80px 40px;
+      text-align: center;
+    }
+    .hero h1 { font-size: 48px; font-weight: 800; color: #1a1a2e; margin-bottom: 16px; }
+    .hero p  { font-size: 18px; color: #555; max-width: 560px; line-height: 1.6; }
+    .hero .badge {
+      margin-top: 24px;
+      padding: 8px 20px;
+      background: rgba(15,95,168,0.08);
+      border: 1px solid rgba(15,95,168,0.2);
+      border-radius: 20px;
+      font-size: 13px;
+      color: #0f5fa8;
+    }
+    .notice {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1a1a1a;
+      color: #fff;
+      padding: 12px 24px;
+      border-radius: 50px;
+      font-size: 13px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+      z-index: 9999;
+      animation: fadeNotice 4s forwards;
+    }
+    @keyframes fadeNotice {
+      0%   { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+      10%  { opacity: 1; transform: translateX(-50%) translateY(0); }
+      80%  { opacity: 1; }
+      100% { opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="notice">
+    🤖 Lifodial Widget Test — look for the green button in the bottom-right corner!
+  </div>
+
+  <nav>
+    <div class="logo">🏥 Apollo Mumbai</div>
+    <a href="#">Home</a>
+    <a href="#">Doctors</a>
+    <a href="#">Appointments</a>
+    <a href="#">Contact</a>
+  </nav>
+
+  <div class="hero">
+    <h1>World-Class Healthcare<br/>at Your Doorstep</h1>
+    <p>Apollo Multispeciality Hospital Mumbai — Trusted by over 5 lakh patients across India. Book appointments, consult specialists, and get 24/7 support.</p>
+    <div class="badge">📍 Andheri West, Mumbai · Open 24/7</div>
+  </div>
+
+  <!--
+    ═══════════════════════════════════════════════════
+    LIFODIAL WIDGET EMBED — This is the ONLY code
+    a clinic developer needs to paste!
+    ═══════════════════════════════════════════════════
+  -->
+  <script
+    src="http://localhost:8000/widget.js"
+    data-agent-id="REPLACE_WITH_YOUR_AGENT_ID"
+    data-api-url="http://localhost:8000"
+    data-position="bottom-right"
+    data-theme="dark"
+  ></script>
+
+</body>
+</html>

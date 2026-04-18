@@ -1,0 +1,258 @@
+@import "tailwindcss";
+
+@layer base {
+  * {
+    box-sizing: border-box;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  :root {
+    /* DARK (default) */
+    --bg-page:         #0F0F0F;
+    --bg-surface:      #1A1A1A;
+    --bg-surface-2:    #222222;
+    --bg-surface-3:    #2A2A2A;
+    --border:          #2E2E2E;
+    --border-strong:   #3E3E3E;
+    --text-primary:    #FFFFFF;
+    --text-secondary:  #A1A1A1;
+    --text-muted:      #666666;
+    --accent:          #3ECF8E;
+    --accent-hover:    #2EBF7E;
+    --accent-dim:      rgba(62,207,142,0.08);
+    --accent-border:   rgba(62,207,142,0.25);
+    --destructive:     #F87171;
+    --destructive-dim: rgba(248,113,113,0.10);
+    --warning:         #FBBF24;
+    --warning-dim:     rgba(251,191,36,0.10);
+    --purple:          #A78BFA;
+    --purple-dim:      rgba(167,139,250,0.10);
+    --shadow-card:     none;
+  }
+
+  :root.light {
+    --bg-page:         #F9FAFB;
+    --bg-surface:      #FFFFFF;
+    --bg-surface-2:    #F3F4F6;
+    --bg-surface-3:    #E5E7EB;
+    --border:          #E5E7EB;
+    --border-strong:   #D1D5DB;
+    --text-primary:    #0F0F0F;
+    --text-secondary:  #6B7280;
+    --text-muted:      #9CA3AF;
+    --accent:          #3ECF8E;
+    --accent-hover:    #2EBF7E;
+    --accent-dim:      rgba(62,207,142,0.08);
+    --accent-border:   rgba(62,207,142,0.25);
+    --destructive:     #DC2626;
+    --destructive-dim: rgba(220,38,38,0.08);
+    --warning:         #D97706;
+    --warning-dim:     rgba(217,119,6,0.08);
+    --purple:          #7C3AED;
+    --purple-dim:      rgba(124,58,237,0.08);
+    --shadow-card:     0 1px 3px rgba(0,0,0,0.08);
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: #0A0A0A;
+    color: var(--text-primary);
+    font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+    font-size: 14px;
+    transition: background-color 0.2s ease, color 0.2s ease;
+    font-variant-numeric: tabular-nums;
+  }
+
+  input, button, select, textarea {
+    font-family: inherit;
+  }
+
+  code, .mono {
+    font-family: 'JetBrains Mono', monospace;
+  }
+}
+
+/* ── Shimmer skeleton animation ── */
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--bg-surface-2) 25%,
+    var(--bg-surface-3) 50%,
+    var(--bg-surface-2) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 6px;
+}
+
+/* ── Pulsing dot ── */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.5; transform: scale(0.85); }
+}
+
+.dot-pulse {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+/* ── Landing page animations ── */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-10px); }
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes fade-in-scale {
+  from { opacity: 0; transform: scale(0.85); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes gradient-shift {
+  0%, 100% { background-position: 0% 50%; }
+  50%       { background-position: 100% 50%; }
+}
+
+.float-card {
+  animation: float 6s ease-in-out infinite;
+}
+
+.fade-up {
+  animation: fade-up 0.7s ease forwards;
+}
+
+.fade-up-delay-1 { animation: fade-up 0.7s ease 0.1s forwards; opacity: 0; }
+.fade-up-delay-2 { animation: fade-up 0.7s ease 0.2s forwards; opacity: 0; }
+.fade-up-delay-3 { animation: fade-up 0.7s ease 0.3s forwards; opacity: 0; }
+.fade-up-delay-4 { animation: fade-up 0.7s ease 0.4s forwards; opacity: 0; }
+
+/* Landing gradient text */
+.gradient-text {
+  background: linear-gradient(135deg, #3ECF8E, #2EBF7E);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Landing nav blur */
+.nav-blur {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* Scrollbar for landing */
+.landing-page {
+  scrollbar-width: thin;
+  scrollbar-color: #2E2E2E #0F0F0F;
+}
+.landing-page::-webkit-scrollbar { width: 6px; }
+.landing-page::-webkit-scrollbar-track { background: #0F0F0F; }
+
+/* Responsive utility for Landing Nav */
+.desktop-flex { display: none !important; }
+.mobile-flex  { display: flex !important; }
+
+@media (min-width: 1024px) {
+  .desktop-flex { display: flex !important; }
+  .mobile-flex  { display: none !important; }
+}
+
+/* ── DOT GRID BACKGROUND (fixed, full viewport) ── */
+.dot-grid-bg {
+  position: fixed;
+  inset: 0;
+  background-image: radial-gradient(
+    circle,
+    rgba(80, 80, 80, 0.9) 1.2px,
+    transparent 1.2px
+  );
+  background-size: 24px 24px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.dot-grid-bg::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(
+    ellipse 70% 60% at 50% 30%,
+    rgba(10,10,10,0.92) 0%,
+    rgba(10,10,10,0.5) 50%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
+
+/* Green glow orb behind hero headline */
+.hero-glow {
+  position: absolute;
+  width: 700px;
+  height: 700px;
+  background: radial-gradient(
+    circle,
+    rgba(62,207,142,0.07) 0%,
+    transparent 65%
+  );
+  top: 40%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Landing sections sit above the dot grid */
+.landing-section {
+  position: relative;
+  z-index: 2;
+}
+
+/* ── Logo Image Handling ── */
+/* mix-blend-mode: screen eliminates black backgrounds on dark sites */
+img.logo-img, img.logo-navbar, img.logo {
+  mix-blend-mode: screen;
+  background: transparent;
+}
+
+/* ── Demo carousel animations ── */
+@keyframes message-appear {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes booked-appear {
+  from { opacity: 0; transform: scale(0.82); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.msg-appear {
+  animation: message-appear 0.35s ease forwards;
+}
+
+.booked-appear {
+  animation: booked-appear 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+/* Progress bar animation */
+@keyframes progress-fill {
+  from { width: 0%; }
+  to   { width: 100%; }
+}
