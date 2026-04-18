@@ -155,7 +155,7 @@ export default function SASystemHealth() {
           latency={health.database?.latency_ms}
           extra={health.database?.tenant_count !== undefined ? `${health.database.tenant_count} tenants · ${health.database.appointment_count} appointments` : undefined}
         />
-        <ServiceCard label="Agent API" status="healthy" detail="FastAPI on :8001" latency={`~${Math.round(p50)}ms`} extra="Live latency (simulated)" />
+        <ServiceCard label="Agent API" status="healthy" detail="FastAPI on :8000" latency={`~${Math.round(p50)}ms`} extra="Live latency (simulated)" />
         <ServiceCard label="Session Store" status="healthy" detail="In-memory (dev mode)" latency="<1ms" extra="No Redis needed locally" />
         <ServiceCard label="LiveKit" status="unknown" detail="Not tested" extra="Set LIVEKIT_URL in .env" />
         <ServiceCard label="Sarvam AI" status="unknown" detail="Not tested" extra="Set SARVAM_API_KEY in .env" />

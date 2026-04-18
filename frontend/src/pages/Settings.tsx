@@ -662,7 +662,7 @@ function SystemStatusTab() {
           Backend Services
         </p>
         {[
-          { name: 'API Server (FastAPI)',  port: '8001', ok: false },
+          { name: 'API Server (FastAPI)',  port: '8000', ok: false },
           { name: 'Database (PostgreSQL)', port: '5432', ok: false },
           { name: 'Cache (Redis)',          port: '6379', ok: false },
           { name: 'Voice Agent (LiveKit)', port: '7880', ok: false },
