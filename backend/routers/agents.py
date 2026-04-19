@@ -557,6 +557,52 @@ async def test_call(agent_id: str) -> dict:
     }
 
 
+# ── POST /agents/{agent_id}/web-call-token ────────────────────────────────────
+@router.post("/agents/{agent_id}/web-call-token")
+async def generate_web_call_token(agent_id: str) -> dict:
+    from livekit import api
+    import uuid
+    try:
+        async with async_session() as session:
+            result = await session.execute(
+                select(AgentConfig).where(AgentConfig.id == agent_id)
+            )
+            agent = result.scalar_one_or_none()
+            if not agent:
+                raise HTTPException(status_code=404, detail="Agent not found")
+        
+        participant_identity = f"user-{uuid.uuid4().hex[:6]}"
+        room_name = f"web-call-{agent_id[:8]}-{uuid.uuid4().hex[:4]}"
+        
+        # We can use agent's own livekit keys if configured, else global settings
+        lk_key = agent.livekit_api_key or settings.livekit_api_key
+        lk_secret = agent.livekit_api_secret or settings.livekit_api_secret
+        lk_url = agent.livekit_url or settings.livekit_url
+
+        if not lk_key or not lk_secret:
+            raise HTTPException(status_code=500, detail="LiveKit credentials not configured")
+        
+        token = api.AccessToken(lk_key, lk_secret)
+        token.with_identity(participant_identity)
+        token.with_name("Web Caller")
+        token.with_grants(api.VideoGrants(
+            room_join=True,
+            room=room_name,
+        ))
+        jwt_token = token.to_jwt()
+        
+        return {
+            "token": jwt_token,
+            "url": lk_url,
+            "room": room_name,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Error generating web call token: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # ── GET /agents/{agent_id}/call-logs ─────────────────────────────────────────
 
 @router.get("/agents/{agent_id}/call-logs")

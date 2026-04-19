@@ -18,6 +18,7 @@ import {
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import VoiceLibrary from './VoiceLibrary';
+import { useProviders } from '../../hooks/useProviders';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -359,69 +360,192 @@ function ChatBubble({ from, text, muted }: { from: 'AI' | 'Patient'; text: strin
 // ── Step 3 — Voice ────────────────────────────────────────────────────────────
 
 function Step3({ state, onChange }: { state: WizardState; onChange: (k: keyof WizardState | 'open_voice_modal', v: any) => void }) {
-  const PROVIDERS_STT = [
-    { key: 'sarvam',   label: '🇮🇳 Sarvam AI', sublabel: 'Best Indian languages', badge: '★' },
-    { key: 'gemini',   label: 'Gemini Flash',  sublabel: 'Same key as LLM' },
-    { key: 'deepgram', label: 'Deepgram',       sublabel: 'Fastest latency' },
-  ];
-  const MODELS_LLM = ['gemini-2.0-flash', 'gemini-2.0-pro', 'gemini-1.5-flash'];
+  const { data: providers, loading, refresh } = useProviders()
+  const llmModels = providers?.providers.llm[0]?.models || []
+  const ttsProviders = providers?.providers.tts || []
+  const sarvamModels = ttsProviders[0]?.models || []
+  const selectedModelData = sarvamModels.find(m => m.id === state.tts_model)
+  
+  // Voices logic
+  const maleVoices = selectedModelData?.voices?.male_voices || []
+  const femaleVoices = selectedModelData?.voices?.female_voices || []
+  
+  const [playingVoice, setPlayingVoice] = useState<string>("")
+  const [audioCache, setAudioCache] = useState<Record<string, string>>({})
+
+  const playVoice = async (voiceId: string) => {
+    if (playingVoice === voiceId) {
+      setPlayingVoice("")
+      return
+    }
+    
+    if (audioCache[voiceId]) {
+      const audio = new Audio(audioCache[voiceId])
+      setPlayingVoice(voiceId)
+      audio.onended = () => setPlayingVoice("")
+      audio.play()
+      return
+    }
+    
+    setPlayingVoice(`loading-${voiceId}`)
+    try {
+      const sampleTexts: Record<string, string> = {
+        "hi-IN": "नमस्ते! मैं आपकी रिसेप्शनिस्ट हूँ। आज मैं आपकी कैसे मदद कर सकती हूँ?",
+        "en-IN": "Hello! I'm your AI receptionist. How may I help you today?",
+        "ta-IN": "வணக்கம்! நான் உங்கள் AI receptionist. நான் உதவலாமா?",
+        "ar-SA": "مرحباً! أنا مساعدتك الذكية. كيف يمكنني مساعدتك؟",
+      }
+      
+      const res = await fetch('/models/voices/preview', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          provider: 'sarvam',
+          model: state.tts_model,
+          voice_id: voiceId,
+          language: state.tts_language,
+          text: sampleTexts[state.tts_language] || sampleTexts["en-IN"]
+        })
+      })
+      
+      const data = await res.json()
+      const audioUrl = `data:audio/wav;base64,${data.audio_base64}`
+      
+      setAudioCache(prev => ({...prev, [voiceId]: audioUrl}))
+      
+      const audio = new Audio(audioUrl)
+      setPlayingVoice(voiceId)
+      audio.onended = () => setPlayingVoice("")
+      audio.play()
+      
+    } catch {
+      setPlayingVoice("")
+    }
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
       <div>
         <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#fff', marginBottom: '4px' }}>Configure the agent's voice</h2>
-        <p style={{ fontSize: '14px', color: '#666' }}>How patients will hear your AI.</p>
+        <p style={{ fontSize: '14px', color: '#666' }}>Powered by dynamic provider configuration.</p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '24px' }}>
-        {/* New unified Voice config component pulling from the new schema format or showing a nice button  */}
-        <div style={{ border: '1px solid #2E2E2E', borderRadius: '12px', padding: '24px', background: '#111' }}>
-           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <div>
-                 <h3 style={{ fontSize: '15px', fontWeight: 600, color: '#fff', margin: 0 }}>Voice Selection</h3>
-                 <p style={{ fontSize: '13px', color: '#A1A1A1', margin: '4px 0 0 0' }}>Assign a voice to your agent from the library</p>
-              </div>
-              <button
-                onClick={() => onChange('open_voice_modal', true)}
+      <div className="voice-section" style={{ border: '1px solid #2E2E2E', borderRadius: '12px', padding: '24px', background: '#111' }}>
+        <h3 style={{ fontSize: '15px', fontWeight: 600, color: '#fff', marginBottom: '16px' }}>Voice Selection</h3>
+        <div className="voice-model-tabs" style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+          {sarvamModels.map(model => (
+            <button
+              key={model.id}
+              className={`tab ${state.tts_model === model.id ? 'active' : ''}`}
+              onClick={() => onChange('tts_model', model.id)}
+              style={{
+                padding: '8px 16px', borderRadius: '6px', cursor: 'pointer',
+                background: state.tts_model === model.id ? '#3ECF8E' : '#1A1A1A',
+                color: state.tts_model === model.id ? '#000' : '#A1A1A1',
+                border: '1px solid #2E2E2E'
+              }}
+            >
+              {model.name}
+              {model.recommended && ' ★'}
+            </button>
+          ))}
+        </div>
+        
+        <div className="voice-gender-group" style={{ marginBottom: '16px' }}>
+          <label style={{ fontSize: '12px', color: '#A1A1A1', marginBottom: '8px', display: 'block' }}>Female Voices</label>
+          <div className="voice-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px' }}>
+            {femaleVoices.map((voice: any) => (
+              <div
+                key={voice.id}
                 style={{
-                   padding: '10px 16px', borderRadius: '8px', background: '#3ECF8E', color: '#000',
-                   border: 'none', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px'
+                  background: state.tts_voice === voice.id ? 'rgba(62,207,142,0.1)' : '#1A1A1A',
+                  border: `1px solid ${state.tts_voice === voice.id ? '#3ECF8E' : '#2E2E2E'}`,
+                  padding: '12px', borderRadius: '8px', display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '10px'
                 }}
+                onClick={() => onChange('tts_voice', voice.id)}
               >
-                 🎙 {state.tts_voice ? 'Change Voice' : 'Open Voice Library'}
-              </button>
-           </div>
-
-           {state.tts_voice && (
-              <div style={{ padding: '16px', background: 'rgba(62,207,142,0.05)', border: '1px solid var(--accent-border)', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                 <div>
-                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#3ECF8E', letterSpacing: '0.05em', marginBottom: '4px' }}>✅ SELECTED VOICE</div>
-                    <div style={{ fontSize: '16px', fontWeight: 600, color: '#fff', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                       <span style={{ fontSize: '18px' }}>≡</span> {state.tts_voice} · {state.tts_language}
-                    </div>
-                    <div style={{ fontSize: '13px', color: '#A1A1A1', marginTop: '4px' }}>{state.tts_provider} · {state.tts_model}</div>
-                 </div>
-                 <div style={{ display: 'flex', gap: '8px' }}>
-                    <button style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #2E2E2E', background: '#1A1A1A', color: '#fff', fontSize: '12px', cursor: 'pointer' }}>▶ Preview</button>
-                 </div>
+                <div style={{ background: '#2E2E2E', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>♀</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ color: '#fff', fontSize: '14px', fontWeight: 500 }}>{voice.name}</div>
+                  <div style={{ color: '#666', fontSize: '11px' }}>{voice.style}</div>
+                </div>
+                <button
+                  onClick={(e) => { e.stopPropagation(); playVoice(voice.id) }}
+                  style={{ background: 'none', border: 'none', color: playingVoice === voice.id ? '#3ECF8E' : '#A1A1A1', cursor: 'pointer' }}
+                >
+                  {playingVoice === `loading-${voice.id}` ? '⟳' : playingVoice === voice.id ? '⏹' : '▶'}
+                </button>
               </div>
-           )}
+            ))}
+          </div>
+        </div>
+
+        <div className="voice-gender-group">
+          <label style={{ fontSize: '12px', color: '#A1A1A1', marginBottom: '8px', display: 'block' }}>Male Voices</label>
+          <div className="voice-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px' }}>
+            {maleVoices.map((voice: any) => (
+              <div
+                key={voice.id}
+                style={{
+                  background: state.tts_voice === voice.id ? 'rgba(62,207,142,0.1)' : '#1A1A1A',
+                  border: `1px solid ${state.tts_voice === voice.id ? '#3ECF8E' : '#2E2E2E'}`,
+                  padding: '12px', borderRadius: '8px', display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '10px'
+                }}
+                onClick={() => onChange('tts_voice', voice.id)}
+              >
+                <div style={{ background: '#2E2E2E', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>♂</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ color: '#fff', fontSize: '14px', fontWeight: 500 }}>{voice.name}</div>
+                  <div style={{ color: '#666', fontSize: '11px' }}>{voice.style}</div>
+                </div>
+                <button
+                  onClick={(e) => { e.stopPropagation(); playVoice(voice.id) }}
+                  style={{ background: 'none', border: 'none', color: playingVoice === voice.id ? '#3ECF8E' : '#A1A1A1', cursor: 'pointer' }}
+                >
+                  {playingVoice === `loading-${voice.id}` ? '⟳' : playingVoice === voice.id ? '⏹' : '▶'}
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* LLM + sliders */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', padding: '20px', background: '#111', borderRadius: '12px', border: '1px solid #2E2E2E' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          <h3 style={{ fontSize: '13px', fontWeight: 600, color: '#A1A1A1', margin: 0 }}>LLM Model</h3>
-          <div>
-            <label style={{ fontSize: '11px', color: '#666', display: 'block', marginBottom: '6px' }}>Model</label>
-            <select value={state.llm_model} onChange={e => onChange('llm_model', e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '7px', background: '#1A1A1A', border: '1px solid #2E2E2E', color: '#fff', fontSize: '13px', outline: 'none' }}>
-              {MODELS_LLM.map(m => <option key={m} value={m}>{m}{m.includes('flash') ? ' ★ Fastest' : ''}</option>)}
-            </select>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h3 style={{ fontSize: '13px', fontWeight: 600, color: '#A1A1A1', margin: 0 }}>LLM Model</h3>
+            <button onClick={refresh} style={{ fontSize: '11px', color: '#3ECF8E', background: 'none', border: 'none', cursor: 'pointer' }}>↻ Refresh Models</button>
           </div>
+          {loading ? (
+            <div style={{ height: 48, background: '#1A1A1A', borderRadius: '8px', animation: 'pulse 2s infinite' }} />
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {llmModels.map((model: any) => (
+                <button
+                  key={model.id}
+                  onClick={() => onChange('llm_model', model.id)}
+                  style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
+                    padding: '12px', borderRadius: '8px', cursor: 'pointer',
+                    background: state.llm_model === model.id ? 'rgba(62,207,142,0.1)' : '#1A1A1A',
+                    border: `1px solid ${state.llm_model === model.id ? '#3ECF8E' : '#2E2E2E'}`,
+                  }}
+                >
+                  <div style={{ color: '#fff', fontSize: '13px', fontWeight: 500 }}>{model.name}</div>
+                  <div style={{ display: 'flex', gap: '4px', marginTop: '4px', flexWrap: 'wrap' }}>
+                    {model.is_recommended && <span style={{ fontSize: '10px', background: '#3ECF8E', color: '#000', padding: '2px 4px', borderRadius: '4px' }}>★ Recommended</span>}
+                    {model.tags?.map((tag: string) => (
+                      <span key={tag} style={{ fontSize: '10px', background: '#2E2E2E', color: '#A1A1A1', padding: '2px 4px', borderRadius: '4px' }}>{tag}</span>
+                    ))}
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
           <SliderField label="Temperature" value={state.llm_temperature} min={0} max={1} step={0.1} onChange={v => onChange('llm_temperature', v)} />
           <SliderField label="Max Tokens" value={state.max_tokens} min={50} max={300} step={10} onChange={v => onChange('max_tokens', v)} />
         </div>
+        
         <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
           <h3 style={{ fontSize: '13px', fontWeight: 600, color: '#A1A1A1', margin: 0 }}>🎚 Voice Tuning</h3>
           <SliderField label="Pitch"     value={state.tts_pitch}    min={-1} max={1} step={0.1} onChange={v => onChange('tts_pitch', v)} />

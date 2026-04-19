@@ -24,7 +24,7 @@ import {
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { API_URL } from '../../api/client';
-import TestAgentModal from '../../components/TestAgentModal';
+import { WebCallModal } from '../../components/WebCallModal';
 import { FIXTURE_AGENTS } from '../../fixtures/data';
 import VoiceLibrary from './VoiceLibrary';
 
@@ -1367,10 +1367,8 @@ export default function AgentDetail() {
       )}
 
         {showTest && (
-          <TestAgentModal
-            agent={agent}
-            agentId={agentId}
-            agentName={agent?.agent_name || agent?.name}
+          <WebCallModal
+            agent={{...agent, name: agent?.agent_name || agent?.name}}
             onClose={() => setShowTest(false)}
           />
         )}
