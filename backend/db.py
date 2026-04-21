@@ -53,7 +53,7 @@ async def init_db():
     """Creates all tables automatically. Import all models first so metadata is populated."""
     # noqa: F401 — side-effect imports to register all ORM models
     from backend.models import tenant, doctor, appointment, call_log, agent_config, onboarding_request, api_key_config, knowledge_base  # type: ignore
-    from backend.models import phone_number, call_record, embed_analytics  # type: ignore
+    from backend.models import phone_number, call_record, embed_analytics, bulk_call  # type: ignore
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 

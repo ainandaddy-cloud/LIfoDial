@@ -44,6 +44,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("Lifodial starting up — environment: %s", settings.environment)
     
     # Initialize DB — runs safe schema migrations automatically
+    # Also registers new models for auto-create
+    from backend.models import bulk_call  # noqa: ensure BulkCallCampaign is loaded
     await init_db()
     print("[OK] Session store ready (in-memory)")
 
@@ -120,7 +122,7 @@ async def root() -> dict[str, str]:
     return {"service": "Lifodial API", "docs": "/docs"}
 
 # ── Routers ───────────────────────────────────────────────────────────────────
-from backend.routers import admin, tenants, doctors, voice, appointments, ws, voice_upload, agents, agent_test, platform, knowledge_base, voices, web_calls, phone_numbers, embed, models
+from backend.routers import admin, tenants, doctors, voice, appointments, ws, voice_upload, agents, agent_test, platform, knowledge_base, voices, web_calls, phone_numbers, embed, models, simulation, latency, providers, bulk_calls
 
 app.include_router(admin.router,          prefix="/admin",    tags=["superadmin"])
 app.include_router(voice.router,          prefix="/voice",    tags=["voice"])
@@ -138,6 +140,10 @@ app.include_router(web_calls.router,      prefix="",          tags=["web-calls"]
 app.include_router(phone_numbers.router,  prefix="",          tags=["phone-numbers"])
 app.include_router(embed.router,          prefix="",          tags=["embed"])
 app.include_router(models.router,         prefix="",          tags=["models"])
+app.include_router(simulation.router,     prefix="",          tags=["simulation"])
+app.include_router(latency.router,        prefix="",          tags=["latency"])
+app.include_router(providers.router,      prefix="",          tags=["providers"])
+app.include_router(bulk_calls.router,     prefix="",          tags=["bulk-calls"])
 
 
 # ── Serve widget.js publicly ────────────────────────────────────────────────────

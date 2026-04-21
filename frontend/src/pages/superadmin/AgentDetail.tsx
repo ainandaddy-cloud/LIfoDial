@@ -27,6 +27,8 @@ import { API_URL } from '../../api/client';
 import { WebCallModal } from '../../components/WebCallModal';
 import { FIXTURE_AGENTS } from '../../fixtures/data';
 import VoiceLibrary from './VoiceLibrary';
+import SimulationTab from './agent_detail/SimulationTab';
+import AgentHealthTab from './agent_detail/AgentHealthTab';
 
 const ACCENT = '#00D4AA';
 const BG = '#0a0a0a';
@@ -201,7 +203,7 @@ function EmbedSection({ agent, agentId, updateField }: { agent: any; agentId: st
   const [guidePlatform, setGuidePlatform] = React.useState('wordpress');
 
   const apiBase = typeof window !== 'undefined'
-    ? (window.location.hostname === 'localhost' ? 'http://localhost:8000' : 'https://api.lifodial.com')
+    ? (window.location.hostname === 'localhost' ? 'http://localhost:8001' : 'https://api.lifodial.com')
     : 'https://api.lifodial.com';
 
   const position   = agent.embed_position    || 'bottom-right';
@@ -388,7 +390,7 @@ function EmbedSection({ agent, agentId, updateField }: { agent: any; agentId: st
           <div>
             <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'rgba(255,255,255,0.35)', marginBottom: '12px', fontWeight: 600 }}>Live Preview</div>
             <iframe
-              src={`http://localhost:8000/embed/${agentId}/preview`}
+              src={`http://localhost:8001/embed/${agentId}/preview`}
               style={{ width: '100%', height: '280px', border: `1px solid rgba(255,255,255,0.08)`, borderRadius: '12px', background: '#0a0a0a' }}
               title="Widget Preview"
             />
@@ -1269,6 +1271,16 @@ export default function AgentDetail() {
 
             {/* 11. EMBED / WEBSITE WIDGET */}
             <EmbedSection agent={agent} agentId={agentId} updateField={updateField} />
+
+            {/* 12. SIMULATION TESTING */}
+            <CollapsibleSection icon={Activity} title="Simulation Testing" summary="Run 8 pre-built patient scenarios">
+              <SimulationTab agentId={agentId!} />
+            </CollapsibleSection>
+
+            {/* 13. AGENT HEALTH DASHBOARD */}
+            <CollapsibleSection icon={LineChart} title="Agent Health" summary="Latency · Call stats · Eval scores">
+              <AgentHealthTab agentId={agentId!} />
+            </CollapsibleSection>
             
           </div>
         </div>

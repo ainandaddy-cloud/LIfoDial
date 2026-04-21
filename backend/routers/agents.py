@@ -603,11 +603,12 @@ async def generate_web_call_token(agent_id: str) -> dict:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ── GET /agents/{agent_id}/call-logs ─────────────────────────────────────────
+# ── GET /agents/{agent_id}/call-logs (real CallRecord) ───────────────────────
 
 @router.get("/agents/{agent_id}/call-logs")
-async def agent_call_logs(agent_id: str) -> list[dict]:
+async def agent_call_logs(agent_id: str, limit: int = 50) -> list[dict]:
     try:
+        from backend.models.call_record import CallRecord
         async with async_session() as session:
             result = await session.execute(
                 select(AgentConfig).where(AgentConfig.id == agent_id)
@@ -615,13 +616,140 @@ async def agent_call_logs(agent_id: str) -> list[dict]:
             agent = result.scalar_one_or_none()
             if not agent:
                 raise HTTPException(status_code=404, detail="Agent not found")
-        # Return mock call logs for now — wire to CallLog model when available
-        return [
-            {"call_id": f"call-{i}", "duration_secs": 120 + i * 30, "outcome": "booked", "created_at": "2026-04-05T10:00:00Z"}
-            for i in range(5)
-        ]
+
+            cr_result = await session.execute(
+                select(CallRecord)
+                .where(CallRecord.agent_id == agent_id)
+                .order_by(CallRecord.created_at.desc())
+                .limit(limit)
+            )
+            calls = cr_result.scalars().all()
+
+            return [
+                {
+                    "id": c.id,
+                    "call_type": c.call_type,
+                    "patient_number_masked": c.patient_number_masked,
+                    "started_at": c.started_at.isoformat() if c.started_at else None,
+                    "ended_at": c.ended_at.isoformat() if c.ended_at else None,
+                    "duration_seconds": c.duration_seconds,
+                    "status": c.status,
+                    "outcome": c.outcome,
+                    "avg_latency_ms": c.avg_latency_ms,
+                    "turn_count": c.turn_count,
+                    "sentiment": c.sentiment,
+                    "summary": c.summary,
+                    "intent_detected": c.intent_detected,
+                    "booking_successful": c.booking_successful,
+                    "detected_language": c.detected_language,
+                    "transcript": c.transcript or [],
+                    "created_at": c.created_at.isoformat() if c.created_at else None,
+                }
+                for c in calls
+            ]
     except HTTPException:
         raise
     except Exception as e:
         logger.exception("Error fetching call logs for agent %s: %s", agent_id, e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── POST /agents/{agent_id}/call-records/{call_id}/evaluate ───────────────────
+
+@router.post("/agents/{agent_id}/call-records/{call_id}/evaluate")
+async def evaluate_call_record(agent_id: str, call_id: str) -> dict:
+    """Trigger Gemini post-call evaluation for a specific call record."""
+    try:
+        from backend.services.call_evaluator import evaluate_call
+        async with async_session() as session:
+            result = await evaluate_call(call_id, session)
+        if not result:
+            raise HTTPException(status_code=404, detail="Call record not found or has no transcript")
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Evaluation error for call %s: %s", call_id, e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── GET /agents/{agent_id}/health ─────────────────────────────────────────────
+
+@router.get("/agents/{agent_id}/health")
+async def agent_health(agent_id: str) -> dict:
+    """
+    Agent health dashboard data.
+    Returns latency, evaluation stats, and recent call summary.
+    """
+    try:
+        from backend.models.call_record import CallRecord
+        from backend.services.call_evaluator import get_agent_evaluation_stats
+        from datetime import datetime, timedelta
+        from sqlalchemy import and_
+
+        async with async_session() as session:
+            # Verify agent exists
+            agent_res = await session.execute(
+                select(AgentConfig).where(AgentConfig.id == agent_id)
+            )
+            agent = agent_res.scalar_one_or_none()
+            if not agent:
+                raise HTTPException(status_code=404, detail="Agent not found")
+
+            since_24h = datetime.utcnow() - timedelta(hours=24)
+            since_7d = datetime.utcnow() - timedelta(days=7)
+
+            # 24h call counts
+            r24 = await session.execute(
+                select(CallRecord).where(
+                    and_(CallRecord.agent_id == agent_id, CallRecord.created_at >= since_24h)
+                )
+            )
+            calls_24h = r24.scalars().all()
+
+            total_24h = len(calls_24h)
+            successful_24h = sum(1 for c in calls_24h if c.status == "completed")
+            failed_24h = sum(1 for c in calls_24h if c.status == "failed")
+            transferred_24h = sum(1 for c in calls_24h if c.outcome == "transferred")
+
+            # Latency data
+            latency_calls = [
+                c.avg_latency_ms for c in calls_24h
+                if c.avg_latency_ms is not None
+            ]
+            avg_latency = round(sum(latency_calls) / len(latency_calls)) if latency_calls else None
+
+            # Eval stats (7 days)
+            eval_stats = await get_agent_evaluation_stats(agent_id, session, days=7)
+
+            # Status determination
+            status = "healthy"
+            if total_24h > 0 and failed_24h / total_24h > 0.3:
+                status = "degraded"
+            elif avg_latency and avg_latency > 2000:
+                status = "slow"
+
+            return {
+                "agent_id": agent_id,
+                "agent_name": agent.agent_name,
+                "status": status,
+                "last_24h": {
+                    "total_calls": total_24h,
+                    "successful": successful_24h,
+                    "failed": failed_24h,
+                    "transferred": transferred_24h,
+                },
+                "latency": {
+                    "avg_ms": avg_latency,
+                    "target_ms": 800,
+                    "on_target": avg_latency is None or avg_latency <= 800,
+                    "sample_size": len(latency_calls),
+                },
+                "evaluation_stats_7d": eval_stats,
+                "simulation_score": None,  # populated by frontend after simulation run
+            }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Agent health error for %s: %s", agent_id, e)
         raise HTTPException(status_code=500, detail=str(e))

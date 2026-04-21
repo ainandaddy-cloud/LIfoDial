@@ -22,7 +22,7 @@
       ? scriptSrc
       : window.location.hostname === 'localhost' ||
         window.location.hostname === '127.0.0.1'
-      ? 'http://localhost:8000'
+      ? 'http://localhost:8001'
       : 'https://api.lifodial.com';
   const POSITION = script.getAttribute('data-position') || 'bottom-right';
   const THEME    = script.getAttribute('data-theme')    || 'dark';

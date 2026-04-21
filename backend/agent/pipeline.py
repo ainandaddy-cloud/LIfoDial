@@ -1,5 +1,8 @@
 import asyncio
 import logging
+import time
+import uuid
+from datetime import datetime
 from livekit.agents import AgentSession, Agent, RoomInputOptions
 from livekit.plugins import silero
 import google.generativeai as genai
@@ -22,6 +25,10 @@ class LifodialAgent(Agent):
         self.detected_lang = agent_config.get(
             "tts_language", "hi-IN"
         )
+        self.turn_count = 0
+        self.call_start = time.time()
+        self.interruption_count = 0
+        self.latency_log: list[dict] = []
         
         # Build system prompt with clinic info
         self.system_prompt = self._build_system_prompt()
@@ -63,20 +70,46 @@ unconscious, bleeding) → transfer immediately.
 
 FALLBACK: "Kya aap dobara bol sakte hain?" (or in patient's language)"""
     
-    async def on_user_turn_completed(
-        self, turn_ctx, new_message
-    ):
-        """Called when patient finishes speaking."""
+    async def on_agent_speech_interrupted(self, context):
+        """Called when patient speaks while AI is talking (barge-in)."""
+        self.interruption_count += 1
+        logger.info(
+            f"Barge-in #{self.interruption_count} — patient interrupted AI. "
+            f"LiveKit stops TTS automatically."
+        )
+
+    async def on_user_turn_completed(self, turn_ctx, new_message):
+        """Called when patient finishes speaking — logs turn + timing."""
         text = new_message.text_content
         if not text:
             return
+        
+        self.turn_count += 1
         
         # Add to history
         self.session_history.append({
             "role": "user", "text": text
         })
         
-        logger.info(f"Patient: {text[:50]} | Lang: {self.detected_lang}")
+        logger.info(
+            f"Turn {self.turn_count} | Patient: {text[:60]} "
+            f"| Lang: {self.detected_lang}"
+        )
+
+    def record_latency(self, llm_ms: int, tts_ms: int):
+        """Record per-turn latency for health dashboard."""
+        total = llm_ms + tts_ms
+        self.latency_log.append({"llm_ms": llm_ms, "tts_ms": tts_ms, "total_ms": total})
+        logger.info(
+            f"Turn {self.turn_count}: LLM={llm_ms}ms TTS={tts_ms}ms Total={total}ms"
+        )
+        if total > 1500:
+            logger.warning(f"HIGH LATENCY: {total}ms on turn {self.turn_count}")
+    
+    def avg_latency_ms(self) -> float | None:
+        if not self.latency_log:
+            return None
+        return sum(t["total_ms"] for t in self.latency_log) / len(self.latency_log)
 
 
 async def entrypoint(ctx):

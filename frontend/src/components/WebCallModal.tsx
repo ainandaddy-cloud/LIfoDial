@@ -5,7 +5,6 @@ import {
   BarVisualizer,
   RoomAudioRenderer,
   VoiceAssistantControlBar,
-  AgentState,
 } from '@livekit/components-react'
 import '@livekit/components-styles'
 import { API_URL } from '../api/client'
@@ -127,15 +126,17 @@ function CallUI({ agent, duration, formatTime, onClose }: { agent: Agent, durati
   const { state: agentState, audioTrack } = useVoiceAssistant()
   
   const stateConfig: Record<string, { label: string, color: string }> = {
-    [AgentState.Connecting]: { label: "Connecting...", color: "#F59E0B" },
-    [AgentState.Listening]: { label: "🎤 Listening", color: "#3B82F6" },
-    [AgentState.Thinking]: { label: "💭 Processing", color: "#F59E0B" },
-    [AgentState.Speaking]: { label: "🔊 Speaking", color: "#3ECF8E" },
-    [AgentState.Idle]: { label: "● Ready", color: "#666" },
+    "connecting": { label: "Connecting...", color: "#F59E0B" },
+    "listening": { label: "🎤 Listening", color: "#3B82F6" },
+    "thinking": { label: "💭 Processing", color: "#F59E0B" },
+    "speaking": { label: "🔊 Speaking", color: "#3ECF8E" },
+    "idle": { label: "● Ready", color: "#666" },
+    "initializing": { label: "Initializing...", color: "#F59E0B" },
+    "disconnected": { label: "Disconnected", color: "#ef4444" }
   }
   
   const { label, color } = stateConfig[agentState] || 
-    stateConfig[AgentState.Idle]
+    stateConfig["idle"]
   
   const langLabel = ({
     "hi-IN": "🇮🇳 Hindi", "ta-IN": "🇮🇳 Tamil",
@@ -198,7 +199,7 @@ function CallUI({ agent, duration, formatTime, onClose }: { agent: Agent, durati
       </div>
       
       {/* Mic hint */}
-      {agentState === AgentState.Idle && (
+      {agentState === "idle" && (
         <p className="mic-hint">
           Speak naturally — the AI will respond
         </p>
