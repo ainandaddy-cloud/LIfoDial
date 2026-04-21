@@ -1,70 +1,83 @@
-# Lifodial - Deployment Guide
+# Lifodial - AI Voice Receptionist for Clinics
 
-This guide describes how to deploy the entire Lifodial stack (Frontend, Backend, LiveKit Agent, Postgres, Redis, Nginx) to a Linux VPS using Docker Compose.
+Lifodial is a production-grade AI voice receptionist platform designed for healthcare, clinics, and hospitals. It features ultra-low latency voice-to-voice capabilities, a robust Master Agent architecture with barge-in interruption handling, AI-driven post-call evaluations, and a beautiful React frontend.
 
-## Prerequisites
-- A Linux VPS (Ubuntu 22.04 recommended) with at least 2GB RAM, 2 vCPU, 20GB SSD. Example: Hetzner Cloud CX11.
-- A registered domain name pointing to your VPS IP address.
-- SSH access to the VPS.
+## 🚀 Tech Stack
+
+- **Frontend:** React, TypeScript, Vite, TailwindCSS (Vanilla CSS for custom components), Lucide Icons
+- **Backend:** FastAPI (Python), SQLAlchemy, asyncpg
+- **Database:** PostgreSQL (via Supabase), Redis (for session management)
+- **Voice / Telephony:** LiveKit (WebRTC), Exotel/Twilio (SIP integration)
+- **AI Models:** 
+  - **LLM:** Google Gemini 2.0 Flash
+  - **Speech-to-Text (STT) & Text-to-Speech (TTS):** Sarvam AI (High-accuracy native Indian languages & English), Deepgram (Fallback)
 
 ---
 
-## Step 1: Push Code to GitHub
-Ensure all your code (including the scripts and Dockerfiles we just generated) is pushed to a Github repository.
-You will need to change the repo URL inside `scripts/setup_vps.sh` from `https://github.com/YOUR_USERNAME/rxvoice.git` to your actual Lifodial repository URL.
+## 🛠️ Local Development Setup
 
-## Step 2: Initial Server Setup
-1. SSH into your newly created VPS:
-   ```bash
-   ssh root@<YOUR_VPS_IP>
-   ```
-2. You can either copy the `setup_vps.sh` file over to your VPS or run the commands manually. To run it:
-   ```bash
-   bash setup_vps.sh
-   ```
-   **Note**: Make sure to update the github repository clone link in the script first!
-   This script will install Docker, Docker Compose, configure UFW (Firewall), and clone your repository to `/opt/rxvoice`.
+To run Lifodial locally for development, you will need to start both the Python Backend server and the React Frontend server.
 
-## Step 3: Configure Environment Variables
-1. Ensure the repository has been cloned to `/opt/rxvoice` on your VPS.
-2. From your local machine, securely copy your `.env` file to the VPS:
-   ```bash
-   scp .env root@<YOUR_VPS_IP>:/opt/rxvoice/.env
-   ```
-3. Update the `.env` on your VPS as necessary. Notably:
-   - Make sure `ENVIRONMENT=production`
-   - Ensure the database details in `DATABASE_URL` match `POSTGRES_USER` and `POSTGRES_PASSWORD`.
-   - Update `VITE_API_URL` to match your real domain (e.g., `https://yourdomain.com/api`).
-   - Fill in your LiveKit, Sarvam AI, and Gemini AI keys.
+### 1. Backend Setup
 
-## Step 4: First Build and Deployment
-1. SSH back into your VPS and navigate to the project root:
-   ```bash
-   cd /opt/rxvoice
-   ```
-2. Build and start the infrastructure:
-   ```bash
-   bash scripts/deploy.sh initial
-   ```
-   This will start Postgres, Redis, Backend, Python Agent, Frontend, and Nginx. It also automatically runs the database migrations inside the backend container.
+The backend handles the API, database connectivity, and the core AI agent logic.
 
-## Step 5: Setup SSL Certificate and HTTPS
-1. First, make sure your domain's DNS A Record points to the VPS IP address.
-2. Run the SSL script, passing in your domain and email address (for Let's Encrypt expiration notices):
+1. **Navigate to the backend directory:**
    ```bash
-   bash scripts/deploy.sh ssl yourdomain.com your_email@example.com
+   cd backend
    ```
-3. This requests a TLS certificate, saves it in the `certbot_certs` volume, and restarts Nginx to apply it.
 
-## Step 6: Monitor & Update
-- To view logs for all containers:
-  ```bash
-  bash scripts/deploy.sh logs
-  ```
-- Make sure to monitor your docker logs to see if your python agent successfully connects to the LiveKit server.
-- Whenever you push new code changes to github, you can easily pull and restart your application by running:
-  ```bash
-  bash scripts/deploy.sh update
-  ```
+2. **Create and activate a virtual environment:**
+   ```bash
+   python -m venv venv
+   
+   # On Windows:
+   .\venv\Scripts\activate
+   # On macOS/Linux:
+   source venv/bin/activate
+   ```
 
-Your comprehensive Lifodial voice agent stack is now deployed and running!
+3. **Install python dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. **Environment Variables:**
+   Ensure you have a `.env` file in the `backend` folder containing your `DATABASE_URL` (SQLite will be used if left blank), `GEMINI_API_KEY`, `SARVAM_API_KEY`, and `LIVEKIT` keys.
+
+5. **Start the FastAPI server:**
+   ```bash
+   uvicorn main:app --reload --port 8000
+   ```
+   The API will now be running on `http://localhost:8000`.
+
+### 2. Frontend Setup
+
+The frontend provides the Administration dashboards (Clinic view and SuperAdmin view).
+
+1. **Navigate to the frontend directory:**
+   ```bash
+   cd frontend
+   ```
+
+2. **Install Node.js dependencies:**
+   ```bash
+   npm install
+   ```
+
+3. **Start the Vite development server:**
+   ```bash
+   npm run dev
+   ```
+   The UI will now be running on `http://localhost:5173`. 
+   * Local API requests are proxied directly to the backend on `localhost:8000`.
+
+---
+
+## 🔑 Default Dashboards & Logins
+
+- **Clinic Dashboard:** `http://localhost:5173/login` (Use any credentials in demo mode)
+- **SuperAdmin Dashboard:** `http://localhost:5173/superadmin/login` (Hardcoded credentials: `admin@lifodial.com` / `lifodial2026`)
+
+## 🚢 Deployment Updates
+*(Note: A comprehensive VPS container deployment guide is available in `scripts/setup_vps.sh` for when the application moves to production).*
