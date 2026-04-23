@@ -69,16 +69,16 @@ ANTHROPIC_MODELS = [
 
 # ── Sarvam voices catalogue ────────────────────────────────────────────────────
 SARVAM_VOICES = [
-    {"id": "meera",    "name": "Meera",    "gender": "female", "language": "Hindi/English", "description": "Warm, professional"},
-    {"id": "pavithra", "name": "Pavithra", "gender": "female", "language": "Kannada/English","description": "Clear, friendly"},
-    {"id": "maitreyi", "name": "Maitreyi","gender": "female", "language": "Hindi",          "description": "Soft, natural"},
-    {"id": "arvind",   "name": "Arvind",   "gender": "male",   "language": "Hindi/English", "description": "Professional, calm"},
-    {"id": "amol",     "name": "Amol",     "gender": "male",   "language": "Marathi/English","description": "Energetic, clear"},
-    {"id": "amartya",  "name": "Amartya",  "gender": "male",   "language": "Bengali/English","description": "Deep, calm"},
-    {"id": "diya",     "name": "Diya",     "gender": "female", "language": "Hindi",          "description": "Young, vibrant"},
-    {"id": "neel",     "name": "Neel",     "gender": "male",   "language": "Hindi",          "description": "Authoritative"},
-    {"id": "misha",    "name": "Misha",    "gender": "female", "language": "Hindi",          "description": "Cheerful"},
-    {"id": "vian",     "name": "Vian",     "gender": "male",   "language": "English",        "description": "Neutral, clear"},
+    {"id": "shreya",   "name": "Shreya",   "gender": "female", "language": "Hindi/English", "description": "Warm, professional"},
+    {"id": "kavitha",  "name": "Kavitha",  "gender": "female", "language": "Kannada/English","description": "Clear, friendly"},
+    {"id": "priya",    "name": "Priya",    "gender": "female", "language": "Hindi",          "description": "Soft, natural"},
+    {"id": "rahul",    "name": "Rahul",    "gender": "male",   "language": "Hindi/English", "description": "Professional, calm"},
+    {"id": "aditya",   "name": "Aditya",   "gender": "male",   "language": "Marathi/English","description": "Energetic, clear"},
+    {"id": "rohan",    "name": "Rohan",    "gender": "male",   "language": "Bengali/English","description": "Deep, calm"},
+    {"id": "ritu",     "name": "Ritu",     "gender": "female", "language": "Hindi",          "description": "Young, vibrant"},
+    {"id": "amit",     "name": "Amit",     "gender": "male",   "language": "Hindi",          "description": "Authoritative"},
+    {"id": "simran",   "name": "Simran",   "gender": "female", "language": "Hindi",          "description": "Cheerful"},
+    {"id": "shubh",    "name": "Shubh",    "gender": "male",   "language": "English",        "description": "Neutral, clear"},
 ]
 
 OPENAI_TTS_VOICES = [
@@ -476,27 +476,21 @@ async def tts_preview(
         async with httpx.AsyncClient(timeout=20) as client:
             if provider == "sarvam":
                 r = await client.post(
-                    "https://api.sarvam.ai/text-to-speech",
+                    "https://api.sarvam.ai/text-to-speech/stream",
                     headers={"api-subscription-key": raw_key, "Content-Type": "application/json"},
                     json={
-                        "inputs": [text],
-                        "target_language_code": "en-IN",
+                        "text": text,
+                        "target_language_code": "hi-IN",
                         "speaker": voice_id,
-                        "model": "bulbul:v2",
-                        "pitch": pitch,
+                        "model": "bulbul:v3",
                         "pace": pace,
-                        "loudness": loudness,
+                        "speech_sample_rate": 22050,
+                        "output_audio_codec": "mp3",
                         "enable_preprocessing": True,
                     }
                 )
                 r.raise_for_status()
-                data = r.json()
-                # Sarvam returns base64-encoded audio
-                audio_b64 = data.get("audios", [""])[0]
-                if not audio_b64:
-                    raise HTTPException(502, "Sarvam returned empty audio")
-                audio_bytes = base64.b64decode(audio_b64)
-                return Response(content=audio_bytes, media_type="audio/wav")
+                return Response(content=r.content, media_type="audio/mpeg")
 
             elif provider == "elevenlabs":
                 r = await client.post(

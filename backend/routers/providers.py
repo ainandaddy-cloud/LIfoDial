@@ -26,18 +26,18 @@ router = APIRouter()
 
 SARVAM_VOICES = [
     # ── bulbul:v2 ──
-    {"id": "meera",    "name": "Meera",    "model": "bulbul:v2", "language": "hi-IN", "gender": "female", "description": "Warm, professional Hindi"},
-    {"id": "pavithra", "name": "Pavithra", "model": "bulbul:v2", "language": "hi-IN", "gender": "female", "description": "Clear, authoritative"},
-    {"id": "maitreyi", "name": "Maitreyi","model": "bulbul:v2", "language": "hi-IN", "gender": "female", "description": "Soft, caring tone"},
+    {"id": "shreya",   "name": "Shreya",   "model": "bulbul:v2", "language": "hi-IN", "gender": "female", "description": "Warm, professional Hindi"},
+    {"id": "kavitha",  "name": "Kavitha",  "model": "bulbul:v2", "language": "hi-IN", "gender": "female", "description": "Clear, authoritative"},
+    {"id": "priya",    "name": "Priya",    "model": "bulbul:v2", "language": "hi-IN", "gender": "female", "description": "Soft, caring tone"},
     {"id": "karan",    "name": "Karan",    "model": "bulbul:v2", "language": "hi-IN", "gender": "male",   "description": "Professional male Hindi"},
-    {"id": "arvind",   "name": "Arvind",   "model": "bulbul:v2", "language": "hi-IN", "gender": "male",   "description": "Deep, formal"},
-    {"id": "amol",     "name": "Amol",     "model": "bulbul:v2", "language": "hi-IN", "gender": "male",   "description": "Energetic, youthful"},
-    {"id": "amartya",  "name": "Amartya",  "model": "bulbul:v2", "language": "hi-IN", "gender": "male",   "description": "Calm, measured"},
+    {"id": "rahul",    "name": "Rahul",    "model": "bulbul:v2", "language": "hi-IN", "gender": "male",   "description": "Deep, formal"},
+    {"id": "aditya",   "name": "Aditya",   "model": "bulbul:v2", "language": "hi-IN", "gender": "male",   "description": "Energetic, youthful"},
+    {"id": "rohan",    "name": "Rohan",    "model": "bulbul:v2", "language": "hi-IN", "gender": "male",   "description": "Calm, measured"},
     # English
     {"id": "arya",     "name": "Arya",     "model": "bulbul:v2", "language": "en-IN", "gender": "female", "description": "Crisp Indian English"},
-    {"id": "neel",     "name": "Neel",     "model": "bulbul:v2", "language": "en-IN", "gender": "male",   "description": "Neutral Indian English"},
-    {"id": "misha",    "name": "Misha",    "model": "bulbul:v2", "language": "en-IN", "gender": "female", "description": "Friendly, approachable"},
-    {"id": "vian",     "name": "Vian",     "model": "bulbul:v2", "language": "en-IN", "gender": "male",   "description": "Professional"},
+    {"id": "amit",     "name": "Amit",     "model": "bulbul:v2", "language": "en-IN", "gender": "male",   "description": "Neutral Indian English"},
+    {"id": "simran",   "name": "Simran",   "model": "bulbul:v2", "language": "en-IN", "gender": "female", "description": "Friendly, approachable"},
+    {"id": "shubh",    "name": "Shubh",    "model": "bulbul:v2", "language": "en-IN", "gender": "male",   "description": "Professional"},
     {"id": "maya",     "name": "Maya",     "model": "bulbul:v2", "language": "en-IN", "gender": "female", "description": "Warm, empathetic"},
     # Tamil
     {"id": "dhruv",    "name": "Dhruv",    "model": "bulbul:v2", "language": "ta-IN", "gender": "male",   "description": "Tamil male"},

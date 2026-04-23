@@ -1655,16 +1655,16 @@ async def synthesize_speech(agent: AgentConfig, text: str, language_override: st
         if tts_provider == "sarvam":
             raw_voice = (agent.tts_voice or "anushka").strip()
             sarvam_voice_map = {
-                "meera": "meera",
-                "pavithra": "pavithra",
-                "maitreyi": "maitreyi",
-                "arvind": "arvind",
-                "amol": "amol",
-                "amartya": "amartya",
-                "diya": "diya",
-                "neel": "neel",
-                "misha": "misha",
-                "vian": "vian",
+                "meera": "shreya",
+                "pavithra": "kavitha",
+                "maitreyi": "priya",
+                "arvind": "rahul",
+                "amol": "aditya",
+                "amartya": "rohan",
+                "diya": "ritu",
+                "neel": "amit",
+                "misha": "simran",
+                "vian": "shubh",
             }
             normalized_voice = sarvam_voice_map.get(raw_voice.lower(), raw_voice.lower())
             return await sarvam_synthesize(

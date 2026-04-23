@@ -50,6 +50,13 @@ async def get_voices():
     }
 
 
+
+# bulbul:v3 only supports these language codes officially
+SARVAM_V3_SUPPORTED_LANGS = {
+    "hi-IN", "en-IN", "ta-IN", "te-IN", "kn-IN", "ml-IN",
+    "mr-IN", "bn-IN", "gu-IN", "od-IN", "pa-IN", "raj-IN"
+}
+
 @router.post("/preview")
 async def preview_voice(req: PreviewRequest):
     """Generates live preview audio using the configured provider."""
@@ -59,36 +66,39 @@ async def preview_voice(req: PreviewRequest):
             if not api_key:
                 raise HTTPException(status_code=400, detail="Sarvam API key not configured in .env")
 
+            # Normalize language code — bulbul:v3 rejects unsupported ones
+            lang = req.language or "hi-IN"
+            if lang not in SARVAM_V3_SUPPORTED_LANGS:
+                lang = "hi-IN"
+
             async with httpx.AsyncClient(timeout=30.0) as client:
+                # Use /stream endpoint: returns raw mp3 bytes directly (no base64 unwrap needed)
                 response = await client.post(
-                    "https://api.sarvam.ai/text-to-speech",
+                    "https://api.sarvam.ai/text-to-speech/stream",
                     headers={
                         "api-subscription-key": api_key,
                         "Content-Type": "application/json"
                     },
                     json={
-                        "inputs": [req.text],
-                        "target_language_code": req.language or "hi-IN",
-                        "speaker": req.voice_id or "meera",
-                        "model": req.model or "bulbul:v2",
-                        "pitch": 0.0,
+                        "text": req.text,
+                        "target_language_code": lang,
+                        "speaker": req.voice_id or "shreya",
+                        "model": "bulbul:v3",
                         "pace": 1.0,
-                        "loudness": 1.0,
+                        "speech_sample_rate": 22050,
+                        "output_audio_codec": "mp3",
                         "enable_preprocessing": True,
-                        "speech_sample_rate": 22050
                     }
                 )
 
                 if response.status_code == 200:
-                    data = response.json()
-                    audios = data.get("audios", [])
-                    if audios and audios[0]:
-                        return {
-                            "audio_base64": f"data:audio/wav;base64,{audios[0]}",
-                            "format": "wav",
-                            "latency_ms": 0
-                        }
-                    raise HTTPException(status_code=500, detail="Sarvam returned empty audio")
+                    # /stream returns raw mp3 bytes — encode to base64 for browser playback
+                    audio_b64 = base64.b64encode(response.content).decode("utf-8")
+                    return {
+                        "audio_base64": f"data:audio/mpeg;base64,{audio_b64}",
+                        "format": "mp3",
+                        "latency_ms": 0
+                    }
                 else:
                     logger.error(f"Sarvam preview error: {response.status_code} {response.text}")
                     raise HTTPException(status_code=response.status_code, detail=f"Sarvam TTS error: {response.text[:200]}")

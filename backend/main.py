@@ -74,9 +74,23 @@ app = FastAPI(
 )
 
 # ── CORS ───────────────────────────────────────────────────────────────────────
+# NOTE: allow_credentials=True is INCOMPATIBLE with allow_origins=["*"] — browsers block it.
+# We list explicit dev + prod origins instead.
+_CORS_ORIGINS = [
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "http://localhost:3000",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:3000",
+]
+# Also pull any extra origin from env (for production deployment)
+_extra = getattr(settings, "cors_origin", None) or getattr(settings, "frontend_url", None)
+if _extra:
+    _CORS_ORIGINS.append(_extra)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

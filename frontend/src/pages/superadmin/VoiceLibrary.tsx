@@ -73,13 +73,33 @@ export default function VoiceLibrary({ isPickerModal = false, onSelectVoice, rea
              text: voice.sample_text
            })
          });
+
+         if (!res.ok) {
+           const errText = await res.text();
+           console.error(`Voice preview HTTP ${res.status}:`, errText);
+           setLoadingAudioId(null);
+           setPlayingId(null);
+           alert(`Voice preview failed (${res.status}): ${errText.slice(0, 120)}`);
+           return;
+         }
+
          const data = await res.json();
          if (data.audio_base64) {
            audioUrl = data.audio_base64;
            sessionStorage.setItem(cacheKey, audioUrl!);
+         } else {
+           console.error('No audio_base64 in response:', data);
+           setLoadingAudioId(null);
+           setPlayingId(null);
+           alert('Could not preview voice: server returned no audio data');
+           return;
          }
        } catch (err) {
-         console.error("Failed to fetch audio preview", err);
+         console.error("Failed to fetch audio preview:", err);
+         setLoadingAudioId(null);
+         setPlayingId(null);
+         alert(`Could not preview voice: ${String(err)}`);
+         return;
        }
     }
 
@@ -89,13 +109,15 @@ export default function VoiceLibrary({ isPickerModal = false, onSelectVoice, rea
       audioRef.current = audio;
       setPlayingId(voice.id);
       audio.onended = () => setPlayingId(null);
+      audio.onerror = (e) => {
+        console.error("Audio playback error:", e);
+        setPlayingId(null);
+        alert('Audio loaded but could not be played by your browser.');
+      };
       audio.play().catch(e => {
-         console.error("Audio block", e);
+         console.error("Audio play() blocked:", e);
          setPlayingId(null);
       });
-    } else {
-      setPlayingId(null);
-      alert('Could not preview voice');
     }
   };
 
